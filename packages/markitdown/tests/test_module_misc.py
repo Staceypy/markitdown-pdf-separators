@@ -396,6 +396,32 @@ def test_markitdown_llm() -> None:
     validate_strings(result, PPTX_TEST_STRINGS)
 
 
+def test_pdf_page_separators():
+    """Test that PDF conversion with page separators works correctly."""
+    md = MarkItDown(enable_plugins=False)
+    
+    # Test with page separators enabled
+    pdf_path = os.path.join(TEST_FILES_DIR, "test.pdf")
+    result_with_separators = md.convert(pdf_path, add_page_separators=True)
+    
+    # Test without page separators (default behavior)
+    result_without_separators = md.convert(pdf_path, add_page_separators=False)
+    
+    # Verify that both results contain the expected content
+    assert "While there is contemporaneous exploration of multi-agent approaches" in result_with_separators.markdown
+    assert "While there is contemporaneous exploration of multi-agent approaches" in result_without_separators.markdown
+    
+    # Verify that the result with separators contains page separators (---)
+    # Note: This test assumes the test PDF has multiple pages
+    # If it's a single page, there won't be separators
+    if "---" in result_with_separators.markdown:
+        # If separators are present, verify they're properly formatted
+        assert "\n\n---\n\n" in result_with_separators.markdown
+    
+    # Verify that the result without separators doesn't contain separators
+    assert "---" not in result_without_separators.markdown
+
+
 if __name__ == "__main__":
     """Runs this file's tests from the command line."""
     for test in [

@@ -3,15 +3,15 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "markitdown"
+name = "markitdown-pdf-separators"
 dynamic = ["version"]
-description = 'Utility tool for converting various files to Markdown'
+description = 'MarkItDown with PDF page separators - convert PDFs to Markdown with page boundary markers'
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-keywords = []
+keywords = ["markdown", "pdf", "converter", "page-separators", "document-conversion"]
 authors = [
-  { name = "Adam Fourney", email = "adamfo@microsoft.com" },
+  { name = "Yu Pei", email = "yu.pei00q@gmail.com" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -22,6 +22,8 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Text Processing :: Markup",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
   "beautifulsoup4",
@@ -60,9 +62,10 @@ youtube-transcription = ["youtube-transcript-api"]
 az-doc-intel = ["azure-ai-documentintelligence", "azure-identity"]
 
 [project.urls]
-Documentation = "https://github.com/microsoft/markitdown#readme"
-Issues = "https://github.com/microsoft/markitdown/issues"
-Source = "https://github.com/microsoft/markitdown"
+Documentation = "https://github.com/Staceypy/markitdown-pdf-separators#readme"
+Issues = "https://github.com/Staceypy/markitdown-pdf-separators/issues"
+Source = "https://github.com/Staceypy/markitdown-pdf-separators"
+Repository = "https://github.com/Staceypy/markitdown-pdf-separators"
 
 [tool.hatch.version]
 path = "src/markitdown/__about__.py"
