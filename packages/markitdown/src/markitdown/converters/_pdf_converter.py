@@ -91,6 +91,10 @@ class PdfConverter(DocumentConverter):
         add_page_separators = kwargs.get("add_page_separators", False)
         remove_headers_footers = kwargs.get("remove_headers_footers", False)
         
+        # Header/footer removal requires page separators to work properly
+        if remove_headers_footers:
+            add_page_separators = True
+        
         if add_page_separators or remove_headers_footers:
             return self._convert_with_options(file_stream, add_page_separators, remove_headers_footers)
         else:

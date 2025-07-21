@@ -32,11 +32,11 @@ from markitdown import MarkItDown
 
 md = MarkItDown(enable_plugins=False)
 
-# Remove headers and footers
+# Remove headers and footers (automatically enables page separators)
 result = md.convert("document.pdf", remove_headers_footers=True)
 # Output excludes common headers/footers like page numbers, copyright notices, etc.
 
-# Combine both features
+# Combine both features explicitly
 result = md.convert("document.pdf", 
                    add_page_separators=True, 
                    remove_headers_footers=True)
@@ -128,6 +128,7 @@ print(result.markdown)
 
 ### Header/Footer Removal (`remove_headers_footers`)
 - **Parameter**: `remove_headers_footers=True/False` (default: `False`)
+- **Note**: Automatically enables page separators when this feature is used
 - Removes common headers and footers automatically
 - Detects and removes up to 2 lines from the beginning and end of each page
 - Identifies duplicate content across pages (headers/footers that repeat)
