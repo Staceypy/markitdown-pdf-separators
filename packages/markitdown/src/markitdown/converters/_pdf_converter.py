@@ -91,10 +91,6 @@ class PdfConverter(DocumentConverter):
         add_page_separators = kwargs.get("add_page_separators", False)
         remove_headers_footers = kwargs.get("remove_headers_footers", False)
         
-        # Header/footer removal requires page separators to work properly
-        if remove_headers_footers:
-            add_page_separators = True
-        
         if add_page_separators or remove_headers_footers:
             return self._convert_with_options(file_stream, add_page_separators, remove_headers_footers)
         else:
@@ -186,7 +182,6 @@ class PdfConverter(DocumentConverter):
         2. Find duplicates and remove all occurrences
         3. Extract common patterns from remaining lines and remove them
         """
-        print("DEBUG: _remove_headers_footers_from_text called!")
         
         # Split by page separators to get individual pages
         pages = text.split('\n\n---\n\n')
@@ -222,17 +217,9 @@ class PdfConverter(DocumentConverter):
                             break
                 first_lines.extend(found_first_lines)
         
-        # Debug output
-        print(f"DEBUG: Found {len(last_lines)} last lines from {len(pages)} pages")
-        if last_lines:
-            print("DEBUG: First 5 last lines:", last_lines[:5])
-        
-        print(f"DEBUG: Found {len(first_lines)} first lines from {len(pages)} pages")
-        if first_lines:
-            print("DEBUG: First 5 first lines:", first_lines[:5])
+       
         
         if len(last_lines) <= 1 and len(first_lines) <= 1:  # Not enough lines to detect patterns
-            print("DEBUG: Not enough lines to detect patterns")
             return text
         
         # Find lines that appear more than once (duplicates) - from both first and last lines
@@ -240,38 +227,18 @@ class PdfConverter(DocumentConverter):
         all_lines = last_lines + first_lines
         line_counts = Counter(all_lines)
         duplicate_lines = {line for line, count in line_counts.items() if count > 1}
-        
-        print(f"DEBUG: Found {len(duplicate_lines)} duplicate lines")
-        if duplicate_lines:
-            print("DEBUG: Duplicate lines:", list(duplicate_lines)[:3])
-            # Show how many times each duplicate appears
-            for line in list(duplicate_lines)[:3]:
-                print(f"DEBUG: '{line}' appears {line_counts[line]} times")
-        
+          
         # Get remaining lines after removing duplicates
         remaining_last_lines = [line for line in last_lines if line not in duplicate_lines]
         remaining_first_lines = [line for line in first_lines if line not in duplicate_lines]
-        
-        print(f"DEBUG: {len(remaining_last_lines)} last lines remaining after removing duplicates")
-        print(f"DEBUG: {len(remaining_first_lines)} first lines remaining after removing duplicates")
-        
+       
         # Find common patterns in remaining lines
         pattern_lines = self._find_common_patterns(remaining_last_lines + remaining_first_lines)
-        
-        print(f"DEBUG: Found {len(pattern_lines)} pattern lines")
-        if pattern_lines:
-            print("DEBUG: Pattern lines first 3:", list(pattern_lines)[:3])
-            # Show how many times each pattern appears
-            for line in list(pattern_lines)[:3]:
-                print(f"DEBUG: '{line}' appears {line_counts[line]} times")
-        
+       
         # Combine all lines to remove
         lines_to_remove = duplicate_lines | pattern_lines
         
-        print(f"DEBUG: Total unique lines to remove: {len(lines_to_remove)}")
         # Calculate total lines being removed (counting all occurrences)
-        total_removals = sum(line_counts[line] for line in lines_to_remove)
-        print(f"DEBUG: Total lines being removed (all occurrences): {total_removals}")
         
         # Remove these lines from all pages
         cleaned_pages = []
@@ -284,33 +251,24 @@ class PdfConverter(DocumentConverter):
                 lines_removed_from_start = 0
                 for i in range(len(lines)):
                     candidate = lines[i].strip()
-                    print(f"DEBUG: start candidate: {candidate}")
                     if candidate and candidate in lines_to_remove and lines_removed_from_start < 2:
-                        print(f"DEBUG: removing start line: {candidate}")
                         lines = lines[i+1:]  # Remove this line and everything before it
                         lines_removed_from_start += 1
-                        print(f"DEBUG: start lines removed so far: {lines_removed_from_start}")
                         if lines_removed_from_start >= 2:  # Stop after removing 2 lines
                             break
                     elif candidate:
-                        print(f"DEBUG: start line not in lines_to_remove: {candidate}")
                         break  # Stop at first non-empty line that's not in removal list
                 
                 # Find and remove up to 2 lines from the end if they're in our removal list
                 lines_removed_from_end = 0
                 for i in range(len(lines) - 1, -1, -1):
                     candidate = lines[i].strip()
-                    print(f"DEBUG: end candidate: {candidate}")
                     if candidate and candidate in lines_to_remove and lines_removed_from_end < 2:
-                        print(f"DEBUG: removing end line: {candidate}")
                         lines = lines[:i]  # Remove this line and everything after it
                         lines_removed_from_end += 1
-                        print(f"DEBUG: end lines removed so far: {lines_removed_from_end}")
                         if lines_removed_from_end >= 2:  # Stop after removing 2 lines
                             break
-                    elif candidate:
-                        print(f"DEBUG: end line not in lines_to_remove: {candidate}")
-                
+                  
                 cleaned_pages.append('\n'.join(lines))
         
         # Rejoin with page separators
