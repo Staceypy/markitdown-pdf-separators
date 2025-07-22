@@ -1,4 +1,5 @@
 import tiktoken
+import re
 from typing import List
 
 
@@ -15,59 +16,52 @@ class TextChunker:
         self, text: str, token_limit: int = 500, overlap_size: int = 50
     ) -> List[str]:
         """
-        Split text into chunks with token limits
-
-        Args:
-            text: Text to chunk
-            token_limit: Maximum tokens per chunk
-            overlap_size: Overlap between chunks in characters
-
-        Returns:
-            List of text chunks
+        Split text into chunks with token limits, ensuring no duplicate sentences between adjacent chunks.
+        Each chunk ends at a sentence boundary, and the next chunk starts at the next sentence.
         """
         if not text:
             return []
 
-        # Count tokens
-        num_tokens = self.token_count(text)
-
-        if num_tokens <= token_limit:
-            return [text]
-
-        # Calculate number of chunks needed
-        num_chunks = num_tokens // token_limit + (num_tokens % token_limit > 0)
-        chunk_size = len(text) // num_chunks
-
+        # Split text into sentences
+        sentences = self._split_into_sentences(text)
         chunks = []
-        previous_end = 0
+        current_chunk = ""
+        current_tokens = 0
 
-        for i in range(num_chunks):
-            if i == 0:
-                start = 0
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            sentence_tokens = self.token_count(sentence)
+            # If adding this sentence would exceed the token limit, start a new chunk
+            if current_tokens + sentence_tokens > token_limit:
+                if current_chunk:
+                    chunks.append(self._clean_text(current_chunk))
+                current_chunk = sentence
+                current_tokens = sentence_tokens
             else:
-                start = (i * chunk_size) - overlap_size
-                start = self._find_nearest_punctuation(text, start, "backward")
-
-            if overlap_size == 0 and start < previous_end:
-                start = previous_end
-
-            if i < num_chunks - 1:
-                end = (i + 1) * chunk_size - overlap_size
-                end = self._find_nearest_punctuation(text, end, "forward")
-            else:
-                end = None
-
-            chunk_text = text[start:end]
-            previous_end = end
-
-            if chunk_text.strip():
-                chunks.append(self._clean_text(chunk_text))
-
+                if current_chunk:
+                    current_chunk += " " + sentence
+                else:
+                    current_chunk = sentence
+                current_tokens += sentence_tokens
+        # Add the last chunk
+        if current_chunk:
+            chunks.append(self._clean_text(current_chunk))
         return chunks
 
     def token_count(self, text: str) -> int:
         """Count tokens in text"""
         return len(self.encoding.encode(text))
+
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """
+        Split text into sentences using regex. Handles common sentence boundaries.
+        """
+        # This regex splits on period, exclamation, or question mark followed by whitespace or end of string
+        sentence_endings = re.compile(r'(?<=[.!?])\s+')
+        sentences = sentence_endings.split(text)
+        return [s.strip() for s in sentences if s.strip()]
 
     def _find_nearest_punctuation(
         self, content: str, index: int, direction: str = "backward"
