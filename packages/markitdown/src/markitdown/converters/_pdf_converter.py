@@ -196,7 +196,6 @@ class PdfConverter(DocumentConverter):
         2. Find duplicate sentences across pages (headers/footers)
         3. Remove identified header/footer sentences
         """
-        print("DEBUG: _remove_headers_footers_from_text called!")
         
         # Split by page separators to get individual pages
         pages = text.split('---')
