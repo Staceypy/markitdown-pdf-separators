@@ -1,7 +1,8 @@
+import re
 import sys
 import io
 
-from typing import BinaryIO, Any
+from typing import BinaryIO, Any, List
 
 
 from .._base_converter import DocumentConverter, DocumentConverterResult
@@ -166,137 +167,169 @@ class PdfConverter(DocumentConverter):
         
         # Combine all parts efficiently
         full_text = "".join(result_parts)
-        
+        full_text_raw = self.clean_text(full_text)
         # Remove headers and footers if requested (after combining all pages)
-        if remove_headers_footers and full_text:
-            removed_headers_footers_full_text = self._remove_headers_footers_from_text(full_text)
+        if remove_headers_footers and full_text_raw:
+            removed_headers_footers_full_text = self._remove_headers_footers_from_text(full_text_raw)
         else:
-            removed_headers_footers_full_text = full_text
+            removed_headers_footers_full_text = full_text_raw
         
         return DocumentConverterResult(markdown=removed_headers_footers_full_text)
+
+    def clean_text(self,text: str) -> str:
+        """Clean and normalize text"""
+        if not text:
+            return ""
+        _whitespace_re = re.compile(r"\s+")
+
+
+        # Remove triple dashes and normalize whitespace
+        # text = text.replace('---', ' ').replace('\n', ' ').replace('\r', ' ')
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = _whitespace_re.sub(" ", text)
+        return text.strip()
 
     def _remove_headers_footers_from_text(self, text: str) -> str:
         """
         Remove headers and footers from text using intelligent pattern detection:
-        1. Collect all last lines above page separators
-        2. Find duplicates and remove all occurrences
-        3. Extract common patterns from remaining lines and remove them
+        1. Split text into sentences and identify page boundaries
+        2. Find duplicate sentences across pages (headers/footers)
+        3. Remove identified header/footer sentences
         """
         print("DEBUG: _remove_headers_footers_from_text called!")
         
         # Split by page separators to get individual pages
-        pages = text.split('\n\n---\n\n')
+        pages = text.split('---')
         
         if len(pages) <= 1:  # No page separators, use simple approach
             return self._remove_headers_footers_simple(text)
         
-        # Collect the last 2 non-empty lines of each page (before the separator)
-        last_lines = []
-        # Collect the first 2 non-empty lines of each page (after the separator)
-        first_lines = []
-        for page in pages:
-            page = page.strip()
-            if page:
-                lines = page.split('\n')
-                # Find the last 2 non-empty lines
-                found_lines = []
-                for line in reversed(lines):
-                    candidate = line.strip()
-                    if candidate:
-                        found_lines.append(candidate)
-                        if len(found_lines) >= 2:  # Stop after finding 2 lines
-                            break
-                last_lines.extend(found_lines)
-                
-                # Find the first 2 non-empty lines
-                found_first_lines = []
-                for line in lines:
-                    candidate = line.strip()
-                    if candidate:
-                        found_first_lines.append(candidate)
-                        if len(found_first_lines) >= 2:  # Stop after finding 2 lines
-                            break
-                first_lines.extend(found_first_lines)
-        
-        # Debug output - overall file statistics
         print(f"DEBUG: Processing {len(pages)} pages total")
-        print(f"DEBUG: Collected {len(last_lines)} potential footer lines and {len(first_lines)} potential header lines")
         
-        if len(last_lines) <= 1 and len(first_lines) <= 1:  # Not enough lines to detect patterns
-            print("DEBUG: Not enough lines to detect patterns")
-            return text
+        # Split each page into sentences
+        all_sentences = []
+        page_sentences = []
         
-        # Find lines that appear more than once (duplicates) - from both first and last lines
-        from collections import Counter
-        all_lines = last_lines + first_lines
-        line_counts = Counter(all_lines)
-        duplicate_lines = {line for line, count in line_counts.items() if count > 1}
-        
-        print(f"DEBUG: Found {len(duplicate_lines)} duplicate lines across all pages")
-        if duplicate_lines:
-            print("DEBUG: Duplicate lines content:")
-            for i, line in enumerate(list(duplicate_lines)[:5]):  # Show first 5 duplicates
-                print(f"  {i+1}. '{line}' (appears {line_counts[line]} times)")
-            if len(duplicate_lines) > 5:
-                print(f"  ... and {len(duplicate_lines) - 5} more duplicate lines")
-        
-        # Get remaining lines after removing duplicates
-        remaining_last_lines = [line for line in last_lines if line not in duplicate_lines]
-        remaining_first_lines = [line for line in first_lines if line not in duplicate_lines]
-        
-        print(f"DEBUG: {len(remaining_last_lines)} footer lines and {len(remaining_first_lines)} header lines remaining after removing duplicates")
-        
-        # Find common patterns in remaining lines
-        pattern_lines = self._find_common_patterns(remaining_last_lines + remaining_first_lines)
-        
-        print(f"DEBUG: Found {len(pattern_lines)} pattern-based lines to remove")
-        if pattern_lines:
-            print("DEBUG: Pattern lines content:")
-            for i, line in enumerate(list(pattern_lines)): 
-                print(f"  {i+1}. '{line}' (appears {line_counts[line]} times)")
-            
-        # Combine all lines to remove
-        lines_to_remove = duplicate_lines | pattern_lines
-        
-        # Calculate total lines being removed (counting all occurrences)
-        total_removals = sum(line_counts[line] for line in lines_to_remove)
-        print(f"DEBUG: Total lines to remove: {len(lines_to_remove)} unique lines ({total_removals} total occurrences)")
-        
-        # Remove these lines from all pages
-        cleaned_pages = []
         for page in pages:
             page = page.strip()
             if page:
-                lines = page.split('\n')
-                
-                # Find and remove up to 2 lines from the beginning if they're in our removal list
-                lines_removed_from_start = 0
-                for i in range(len(lines)):
-                    candidate = lines[i].strip()
-                    if candidate and candidate in lines_to_remove and lines_removed_from_start < 2:
-                        lines = lines[i+1:]  # Remove this line and everything before it
-                        lines_removed_from_start += 1
-                        if lines_removed_from_start >= 2:  # Stop after removing 2 lines
-                            break
-                    elif candidate:
-                        break  # Stop at first non-empty line that's not in removal list
-                
-                # Find and remove up to 2 lines from the end if they're in our removal list
-                lines_removed_from_end = 0
-                for i in range(len(lines) - 1, -1, -1):
-                    candidate = lines[i].strip()
-                    if candidate and candidate in lines_to_remove and lines_removed_from_end < 2:
-                        lines = lines[:i]  # Remove this line and everything after it
-                        lines_removed_from_end += 1
-                        if lines_removed_from_end >= 2:  # Stop after removing 2 lines
-                            break
-                
-                cleaned_pages.append('\n'.join(lines))
+                # Split page into sentences
+                sentences = self._split_into_sentences(page)
+                page_sentences.append(sentences)
+                all_sentences.extend(sentences)
+        
+        print(f"DEBUG: Total sentences across all pages: {len(all_sentences)}")
+        
+        # Find duplicate sentences (likely headers/footers)
+        from collections import Counter
+        sentence_counts = Counter(all_sentences)
+        duplicate_sentences = {sentence for sentence, count in sentence_counts.items() if count > 1}
+        
+        print(f"DEBUG: Found {len(duplicate_sentences)} duplicate sentences across all pages")
+        if duplicate_sentences:
+            print("DEBUG: Duplicate sentences content:")
+            for i, sentence in enumerate(list(duplicate_sentences)[:5]):  # Show first 5
+                print(f"  {i+1}. '{sentence[:100]}...' (appears {sentence_counts[sentence]} times)")
+            if len(duplicate_sentences) > 5:
+                print(f"  ... and {len(duplicate_sentences) - 5} more duplicate sentences")
+        
+        # Find pattern-based sentences (similar structure but different content)
+        pattern_sentences = self._find_sentence_patterns(all_sentences)
+        
+        print(f"DEBUG: Found {len(pattern_sentences)} pattern-based sentences to remove")
+        if pattern_sentences:
+            print("DEBUG: Pattern sentences content:")
+            for i, sentence in enumerate(list(pattern_sentences)[:5]):  # Show first 5
+                print(f"  {i+1}. '{sentence[:100]}...' (appears {sentence_counts.get(sentence, 1)} times)")
+            if len(pattern_sentences) > 5:
+                print(f"  ... and {len(pattern_sentences) - 5} more pattern sentences")
+        
+        # Combine all sentences to remove
+        sentences_to_remove = duplicate_sentences | pattern_sentences
+        
+        # Calculate total sentences being removed
+        total_removals = sum(sentence_counts[sentence] for sentence in sentences_to_remove)
+        print(f"DEBUG: Total sentences to remove: {len(sentences_to_remove)} unique sentences ({total_removals} total occurrences)")
+        
+        # Remove these sentences from all pages
+        cleaned_pages = []
+        for sentences in page_sentences:
+            # Remove sentences that are in our removal list
+            cleaned_sentences = [s for s in sentences if s not in sentences_to_remove]
+            cleaned_page = ' '.join(cleaned_sentences)
+            if cleaned_page.strip():
+                cleaned_pages.append(cleaned_page)
         
         # Rejoin with page separators
-        result = '\n\n---\n\n'.join(cleaned_pages)
+        result = ' --- '.join(cleaned_pages)
         print(f"DEBUG: Header/footer removal complete. Output length: {len(result)} characters")
         return result
+
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """
+        Split text into sentences using regex. Handles common sentence boundaries.
+        """
+        # This regex splits on period, exclamation, or question mark followed by whitespace or end of string
+        sentence_endings = re.compile(r'(?<=[.!?])\s+')
+        sentences = sentence_endings.split(text)
+        return [s.strip() for s in sentences if s.strip()]
+
+    def _find_sentence_patterns(self, sentences: List[str]) -> set:
+        """
+        Find sentences with similar patterns (like page numbers, copyright notices, etc.)
+        """
+        if len(sentences) < 2:
+            return set()
+        
+        pattern_sentences = set()
+        
+        # Strategy 1: Find sentences that contain numbers and share common words
+        for i, sentence in enumerate(sentences):
+            # Check if sentence contains numbers
+            if not re.search(r'\d', sentence):
+                continue
+                
+            words = set(re.findall(r'\b\w+\b', sentence))
+            if len(words) == 0:
+                continue
+                
+            # Count how many other sentences share meaningful words with this sentence
+            shared_count = 0
+            for j, other_sentence in enumerate(sentences):
+                if i != j:
+                    other_words = set(re.findall(r'\b\w+\b', other_sentence))
+                    shared_words = words & other_words
+                    # Only count if they share meaningful words (not just common words)
+                    meaningful_shared = shared_words - {'the', 'of', 'to', 'and', 'or', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'into', 'onto', 'upon', 'within', 'without', 'through', 'throughout', 'during', 'before', 'after', 'since', 'until', 'while', 'where', 'when', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose', 'this', 'that', 'these', 'those', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'must', 'shall'}
+                    if len(meaningful_shared) >= 2:  # Require at least 2 meaningful shared words
+                        shared_count += 1
+            
+            # If this sentence shares meaningful words with at least 2 other sentences, it's likely a pattern
+            if shared_count >= 2:
+                pattern_sentences.add(sentence)
+        
+        # Strategy 2: Find sentences with similar structure (like "Page X of Y")
+        for i, sentence in enumerate(sentences):
+            # Create a structure pattern: replace numbers with 'N', keep other chars
+            structure = re.sub(r'\d+', 'N', sentence)
+            
+            # Only consider sentences that have a meaningful structure
+            if len(structure) < 5 or structure.count('N') < 2:
+                continue
+            
+            # Count how many other sentences have the same structure
+            structure_count = 0
+            for j, other_sentence in enumerate(sentences):
+                if i != j:
+                    other_structure = re.sub(r'\d+', 'N', other_sentence)
+                    if structure == other_structure:
+                        structure_count += 1
+            
+            # If this sentence has the same structure as at least 2 other sentences, it's likely a pattern
+            if structure_count >= 2:
+                pattern_sentences.add(sentence)
+        
+        return pattern_sentences
 
     def _find_common_patterns(self, lines: list) -> set:
         """
