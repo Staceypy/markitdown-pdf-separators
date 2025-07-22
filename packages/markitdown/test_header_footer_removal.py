@@ -6,6 +6,7 @@ Test script for the new header/footer removal feature in MarkItDown.
 import sys
 import os
 from pathlib import Path
+from typing import List
 
 # Add the src directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -36,7 +37,7 @@ def test_header_footer_removal():
         print("No PdfConverter found in registered converters!")
     
     # Test file path
-    test_file = "tests/test_files/ESRS.pdf"
+    test_file = "tests/test_files/sha.pdf"
     
     if not os.path.exists(test_file):
         print(f"Test file not found: {test_file}")
@@ -72,18 +73,66 @@ def test_header_footer_removal():
             
         
         # Save the output to a file
-        output_path = "output_page_separated_no_headers4.md"
+                # Output original clean text
+        output_path = "output_page_separated_no_headers.md"
+        clean_content = clean_text(result3.text_content)
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(result3.markdown)
+            f.write(clean_content)
+        
+        # Chunk the clean text and output to separate file
+        from text_chunker import TextChunker
+        
+        chunker = TextChunker()
+        
+        
+        # Chunk the text (adjust token_limit and overlap_size as needed)
+        chunks = chunker.chunk_text(
+            text=clean_content,
+            token_limit=500,  # Adjust based on your needs
+            overlap_size=50   # Adjust based on your needs
+        )
+        
+        # Output chunked text
+        chunked_output_path = "output_chunked.md"
+        with open(chunked_output_path, "w", encoding="utf-8") as f:
+            f.write(f"# Chunked Document\n\n")
+            f.write(f"Original text tokens: {chunker.token_count(clean_content)}\n")
+            f.write(f"Number of chunks: {len(chunks)}\n\n")
+            
+            for i, chunk in enumerate(chunks, 1):
+                f.write(f"## Chunk {i}\n\n")
+                f.write(f"**Tokens:** {chunker.token_count(chunk)}\n\n")
+                f.write(chunk)
+                f.write("\n\n\n\n")
+        
+        print(f"Original text saved to: {output_path}")
+        print(f"Chunked text saved to: {chunked_output_path}")
+        print(f"Total chunks: {len(chunks)}")
+        print(f"Total tokens: {chunker.token_count(clean_content)}")
         print(f"\nSaved Markdown with page separators and no headers/footers to: {output_path}")
         with open("original.md", "w", encoding="utf-8") as f:
-            f.write(result_only_page_separators.markdown)
+            f.write(clean_text(result_only_page_separators.text_content))
         print(f"\nSaved Markdown with page separators and no headers/footers to: original.md")
     
     except Exception as e:
         print(f"Error during conversion: {e}")
         print("\nThis might be because PyMuPDF is not installed.")
         print("Install it with: pip install PyMuPDF")
+import re
+
+_whitespace_re = re.compile(r"\s+")
+
+def clean_text(text: str) -> str:
+    """Clean and normalize text"""
+    if not text:
+        return ""
+
+    # Remove triple dashes and normalize whitespace
+    text = text.replace('---', ' ').replace('\n', ' ').replace('\r', ' ')
+    text = _whitespace_re.sub(" ", text)
+    return text.strip()
+
+
 
 def test_header_footer_removal_with_sample_text():
     """Test the header/footer removal logic with sample text."""
