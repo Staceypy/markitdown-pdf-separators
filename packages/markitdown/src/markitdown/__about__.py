@@ -2,4 +2,4 @@
 # Based on original work by Adam Fourney <adamfo@microsoft.com>
 #
 # SPDX-License-Identifier: MIT
-__version__ = "0.3.1"
+__version__ = "0.4.1"

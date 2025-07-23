@@ -44,6 +44,7 @@ all = [
   "xlrd",
   "lxml",
   "pdfminer.six",
+  "PyMuPDF",
   "olefile",
   "pydub",
   "SpeechRecognition",
@@ -56,6 +57,7 @@ docx = ["mammoth", "lxml"]
 xlsx = ["pandas", "openpyxl"]
 xls = ["pandas", "xlrd"]
 pdf = ["pdfminer.six"]
+pdf-advanced = ["pdfminer.six", "PyMuPDF"]
 outlook = ["olefile"]
 audio-transcription = ["pydub", "SpeechRecognition"]
 youtube-transcription = ["youtube-transcript-api"]
