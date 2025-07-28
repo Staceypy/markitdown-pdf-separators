@@ -37,7 +37,7 @@ def test_header_footer_removal():
         print("No PdfConverter found in registered converters!")
     
     # Test file path
-    test_file = "tests/test_files/aoa.pdf"
+    test_file = "tests/test_files/sha_docx.docx"
     
     if not os.path.exists(test_file):
         print(f"Test file not found: {test_file}")
@@ -54,13 +54,11 @@ def test_header_footer_removal():
         print("\n3. With page separators AND header/footer removal:")
         print("-" * 40)
         result3 = md.convert(test_file, 
-                           add_page_separators=True, 
                            remove_headers_footers=True)
         
         # Debug: Let's also get the result without header/footer removal to compare
         print("\nGetting result without header/footer removal for comparison...")
         result_only_page_separators = md.convert(test_file, 
-                                          add_page_separators=True, 
                                           remove_headers_footers=False)
         
         print(f"\nLength with header/footer removal: {len(result3.markdown)}")
@@ -133,6 +131,20 @@ def looks_like_margin_mark(line: str,
         return False
     single_char = sum(1 for t in tokens if len(t) == 1)
     return single_char / len(tokens) >= ratio
+
+def remove_all_empty_lines_between_paragraphs(text: str) -> str:
+    """
+    Remove ALL empty lines between paragraphs, making text more compact.
+    This removes paragraph separation entirely.
+    """
+    import re
+    
+    # Remove all empty lines (lines with only whitespace)
+    lines = text.split('\n')
+    non_empty_lines = [line for line in lines if line.strip()]
+    
+    return '\n'.join(non_empty_lines)
+
 def clean_text(text: str) -> str:
     """Clean and normalize text"""
     # if not text:
@@ -150,7 +162,9 @@ def clean_text(text: str) -> str:
     removed_samples = []
     removed_count = 0
 
-    lines = text.split("\n")
+    lines_old = text.split("\n")
+    lines = [line for line in lines_old if line.strip()]
+
     i = 0
     while i < len(lines):
         ln = lines[i]
@@ -165,10 +179,10 @@ def clean_text(text: str) -> str:
         # Case B: vertical watermark (many consecutive 1-2 char lines)
         j = i
         vert_block = []
-        while j < len(lines) and len(lines[j].strip()) <= 2 and lines[j].strip():
+        while j < len(lines) and len(lines[j].strip()) <= 3 and lines[j].strip():
             vert_block.append(lines[j].strip())
             j += 1
-        if len(vert_block) >= 8:  # treat as watermark block
+        if len(vert_block) >= 5:  # treat as watermark block
             removed_count += len(vert_block)
             if len(removed_samples) < 3:
                 removed_samples.append(' '.join(vert_block[:20]))
@@ -188,6 +202,8 @@ def clean_text(text: str) -> str:
     # 2) now do the existing whitespace flattening
     text = text.replace("\n", " ").replace("\r", " ")
     text = _whitespace_re.sub(" ", text)
+    markdown_title_pattern = re.compile(r"^#+ ")
+    text = markdown_title_pattern.sub("", text)
     return text.strip()
 
 
@@ -223,12 +239,11 @@ i love summer
     print("\nTesting header/footer removal logic with sample text:")
     print(pdf_converter._remove_headers_footers_from_text(sample_text))
     
-
 if __name__ == "__main__":
     
     # Test with sample text first
     # test_header_footer_removal_with_sample_text()
     
     # Test with actual PDF file
-    test_header_footer_removal()
+     test_header_footer_removal()
    
