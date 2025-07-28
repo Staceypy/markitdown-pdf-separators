@@ -79,7 +79,7 @@ class DocxConverter(HtmlConverter):
         remove_headers_footers = kwargs.get("remove_headers_footers", False)
         
         if add_page_separators or remove_headers_footers:
-            return self._convert_with_options(file_stream, add_page_separators, remove_headers_footers, **kwargs)
+            return self._convert_with_options(file_stream, add_page_separators, remove_headers_footers)
         else:
             # Original conversion logic
             style_map = kwargs.get("style_map", None)
@@ -89,7 +89,7 @@ class DocxConverter(HtmlConverter):
                 **kwargs,
             )
 
-    def _convert_with_options(self, file_stream: BinaryIO, add_page_separators: bool, remove_headers_footers: bool, **kwargs: Any) -> DocumentConverterResult:
+    def _convert_with_options(self, file_stream: BinaryIO, add_page_separators: bool, remove_headers_footers: bool) -> DocumentConverterResult:
         """
         Convert DOCX to markdown with optional page separators and header/footer removal.
         """
@@ -105,9 +105,8 @@ class DocxConverter(HtmlConverter):
             pages = self._extract_pages_from_docx(pre_process_stream)
         else:
             # Convert normally without page separation
-            style_map = kwargs.get("style_map", None)
-            html_content = mammoth.convert_to_html(pre_process_stream, style_map=style_map).value
-            result = self._html_converter.convert_string(html_content, **kwargs)
+            html_content = mammoth.convert_to_html(pre_process_stream).value
+            result = self._html_converter.convert_string(html_content)
             
             # Apply header/footer removal if requested
             if remove_headers_footers:
@@ -122,7 +121,7 @@ class DocxConverter(HtmlConverter):
         
         for page_content in pages:
             # Convert page HTML to markdown
-            page_result = self._html_converter.convert_string(page_content, **kwargs)
+            page_result = self._html_converter.convert_string(page_content)
             page_markdown = page_result.markdown.strip()
             
             # Add page separator if this is not the first page and page has content
